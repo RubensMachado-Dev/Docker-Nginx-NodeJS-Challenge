@@ -1,0 +1,36 @@
+# ---- Base Node ----
+FROM node:carbon AS base
+# Create app directory
+WORKDIR /usr/src/app
+
+# ---- Dependencies ----
+FROM base AS dependencies
+# A wildcard is used to ensure both package.json AND package-lock.json are copied
+COPY package*.json ./
+# install app dependencies including 'devDependencies'
+RUN apt-get update && apt-get install -y wget && npm install -g npm@7.5.4 && npm install
+
+ENV DOCKERIZE_VERSION v0.6.1
+RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+
+# ---- Copy Files/Build ----
+FROM dependencies AS build
+WORKDIR /usr/src/app
+COPY . /usr/src/app
+# Build react/vue/angular bundle static files
+# RUN npm run build
+
+# --- Release with Alpine ----
+FROM node:8.9-alpine AS release
+# Create app directory
+WORKDIR /usr/src/app
+# optional
+# RUN npm -g install serve
+COPY --from=dependencies /app/package.json ./
+# Install app dependencies
+RUN npm install --only=production
+COPY --from=build /usr/src/app .
+#CMD ["serve", "-s", "dist", "-p", "8080"]
+#CMD ["node", "server.js"]
